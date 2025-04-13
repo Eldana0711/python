@@ -1,0 +1,144 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[18]:
+
+
+from flask import Flask, render_template_string, request
+import pandas as pd
+import os
+
+app = Flask(__name__)
+
+faq_file_path = "C:/Users/user/Desktop/python/Агент.xlsx"
+user_questions_file_path = "C:/Users/user/Desktop/python/Questions.xlsx"
+
+if os.path.exists(faq_file_path):
+    data = pd.read_excel(faq_file_path)
+else:
+    raise FileNotFoundError("Файл FAQ не найден!")
+
+faq_list = data.iloc[:, :2].rename(columns={data.columns[0]: 'question', data.columns[1]: 'answer'}).to_dict(orient='records')
+
+def save_user_question_to_excel(user_question, path=user_questions_file_path):
+    if os.path.exists(path):
+        df = pd.read_excel(path)
+    else:
+        df = pd.DataFrame(columns=["User Question"])
+    
+
+    new_data = pd.DataFrame([[user_question]], columns=["User Question"])
+    df = pd.concat([df, new_data], ignore_index=True)
+    
+
+    df.to_excel(path, index=False)
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+    message = ""
+    if request.method == "POST":
+  
+        user_question = request.form["user_question"]
+        
+   
+        save_user_question_to_excel(user_question)
+        
+  
+        message = "Спасибо! Ваш вопрос был отправлен."
+
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <title>Часто задаваемые вопросы</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; background: #f0f8ff; color: #2c3e50; }
+            .faq-item { margin-bottom: 15px; }
+            .question { 
+                font-weight: bold; 
+                cursor: pointer; 
+                color: #007b84; 
+                transition: all 0.3s ease-in-out; 
+            }
+            .question:hover {
+                color: #28a745; /* Зеленый цвет при наведении */
+                text-shadow: 0 0 10px rgba(40, 167, 69, 0.8); /* Свечение зеленое */
+            }
+            .answer { 
+                display: none; 
+                margin-left: 10px; 
+                margin-top: 5px; 
+                font-size: 18px; /* Увеличен размер шрифта для ответа */
+                color: #000000; /* Черный цвет текста */
+                line-height: 1.6; /* Увеличено межстрочное расстояние */
+            }
+            .ask-form { 
+                margin-top: 40px; 
+                padding-top: 20px; 
+                border-top: 2px solid #ccc; 
+                background-color: #e0f7fa; /* Светлый голубой фон для формы */
+                padding: 20px;
+                border-radius: 8px;
+            }
+            input[type="text"] { 
+                width: 100%; 
+                padding: 10px; 
+                margin-top: 10px; 
+                border-radius: 5px; 
+                border: 1px solid #007b84; /* Синий цвет границы */
+                box-sizing: border-box;
+            }
+            button { 
+                background-color: #007b84; 
+                color: white; 
+                padding: 10px 20px; 
+                border: none; 
+                border-radius: 5px; 
+                cursor: pointer; 
+                transition: background-color 0.3s ease-in-out;
+            }
+            button:hover { 
+                background-color: #005f6b; 
+            }
+            .message { 
+                color: green; 
+                font-weight: bold; 
+                margin-top: 10px; 
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Часто задаваемые вопросы</h1>
+        {% for item in faq %}
+            <div class="faq-item">
+                <div class="question" onclick="toggleAnswer(this)">{{ item.question }}</div>
+                <div class="answer">{{ item.answer }}</div>
+            </div>
+        {% endfor %}
+
+        <!-- Форма для отправки вопросов -->
+        <div class="ask-form">
+            <h2>Не нашли ответа? Задайте свой вопрос!</h2>
+            <form method="POST">
+                <input type="text" name="user_question" placeholder="Напишите ваш вопрос..." required>
+                <button type="submit">Отправить</button>
+            </form>
+            {% if message %}
+                <div class="message">{{ message }}</div>
+            {% endif %}
+        </div>
+
+        <script>
+            function toggleAnswer(el) {
+                const answer = el.nextElementSibling;
+                answer.style.display = answer.style.display === 'none' ? 'block' : 'none';
+            }
+        </script>
+    </body>
+    </html>
+    """, faq=faq_list, message=message)
+
+if __name__ == "__main__":
+    app.run(debug=False)
+
